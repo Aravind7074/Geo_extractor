@@ -33,9 +33,6 @@ def convert_to_degrees(value):
 
 # --- 3. CORE LOGIC: IMAGE PROCESSING ---
 def process_images(folder):
-   
-   
-    
     """
     Scans a folder, extracts GPS (EXIF) or asks AI (Gemini), 
     and returns a Map object and a list of data points.
@@ -180,30 +177,23 @@ def process_uploaded_files(uploaded_files):
                 pass # Skip if file is locked
 
     # 2. Save Streamlit's memory files to the hard drive
-    def process_uploaded_files(uploaded_files):
-    """
-    QUALITY FIX: Process files directly from memory for Cloud Hosting.
-    """
-    all_pts = []
-    
     for file in uploaded_files:
-        try:
-            # 1. Convert Streamlit UploadedFile to a PIL Image for Gemini
-            img_data = PIL.Image.open(file)
-            
-            # 2. Call your existing AI analysis function 
-            # (Make sure your analyze_image_with_ai function accepts a PIL Image object!)
-            res = analyze_image_with_ai(img_data) 
-            
-            if res:
-                all_pts.append({
-                    "File": file.name,
-                    "Lat": res.get('lat'),
-                    "Lon": res.get('lng'),
-                    "Source": "AI Neural Vision"
-                })
-        except Exception as e:
-            print(f"Error processing {file.name}: {e}")
+        with open(os.path.join(TEMP_FOLDER, file.name), "wb") as f:
+            f.write(file.getbuffer())
+
+    # 3. Run the pipeline on the new folder
+    investigation_map, raw_data = process_images(TEMP_FOLDER)
+
+    # 4. Format the data for Streamlit Display & PDF
+    if raw_data:
+        formatted_data = []
+        for item in raw_data:
+            formatted_data.append({
+                "File": item.get("filename", "Unknown"),
+                "Lat": item.get("lat", 0.0),
+                "Lon": item.get("lng", 0.0),
+                "Source": item.get("source", "AI Detected")
+            })
         df = pd.DataFrame(formatted_data)
     else:
         df = pd.DataFrame()
