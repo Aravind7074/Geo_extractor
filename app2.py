@@ -8,6 +8,18 @@ from fpdf import FPDF
 import random
 import io
 
+
+# --- TEMPORARY QA DEBUGGER ---
+import os
+test_key = os.getenv("GEMINI_API_KEY")
+if test_key:
+    st.success(f"✅ Cloud Server sees the API Key! (Starts with: {test_key[:5]}...)")
+else:
+    st.error("🚨 CRITICAL: The Cloud Server CANNOT see the API Key! It is running blind.")
+# ----------------------------- tempend
+
+
+
 # --- 1. PAGE SETUP & CYBER-THEME ---
 st.set_page_config(page_title="M2 Geo-Forensics Engine", layout="wide")
 
