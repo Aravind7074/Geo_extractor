@@ -8,14 +8,6 @@ from fpdf import FPDF
 import random
 import io
 
-
-import os
-# This ensures the folder exists the second the app boots up on the cloud
-if not os.path.exists("evidence_images"):
-    os.makedirs("evidence_images")
-
-
-
 # --- 1. PAGE SETUP & CYBER-THEME ---
 st.set_page_config(page_title="M2 Geo-Forensics Engine", layout="wide")
 
@@ -66,14 +58,8 @@ def create_pdf(data, distance):
     return pdf.output()
 
 # --- 3. DATA PROCESSING ---
-import pipeline
-from geopy.distance import geodesic
-
-# 1. QUALITY FIX: Give the app "Memory" so the map survives clicks!
-if "all_nodes" not in st.session_state:
-    st.session_state.all_nodes = []
-if "total_distance" not in st.session_state:
-    st.session_state.total_distance = 0.0
+all_nodes = []
+total_distance = 0.0
 
 with st.sidebar:
     st.markdown("<h2 style='color:#00f2ff;'>🛡️ RECON CORE</h2>", unsafe_allow_html=True)
@@ -83,65 +69,38 @@ with st.sidebar:
     show_heatmap = st.checkbox("Toggle Evidence Heatmap", value=False)
     show_cctv = st.checkbox("Overlay Potential CCTV Coverage", value=False)
     
-    # 2. QUALITY FIX: Put the button back so we don't spam the API!
     if uploaded_files:
-        if st.button("🚀 INITIATE AI RECONNAISSANCE", use_container_width=True):
-            with st.spinner("Executing Neural Extraction Pipeline..."):
-                
-                # Clear old memory for a fresh run
-                st.session_state.all_nodes = [] 
-                st.session_state.total_distance = 0.0
-                
-                _, extracted_df = pipeline.process_uploaded_files(uploaded_files)
-                
-                if not extracted_df.empty:
-                    for i, file in enumerate(uploaded_files):
-                        match = extracted_df[extracted_df['File'] == file.name]
-                        if not match.empty:
-                            lat = match.iloc[0]['Lat']
-                            lon = match.iloc[0]['Lon']
-                            source = match.iloc[0]['Source']
-                            
-                            is_ai = "AI" in source.upper() 
-                            gmaps_url = f"https://www.google.com/maps?q={lat},{lon}"
-                            
-                            # Save to Streamlit Memory
-                            st.session_state.all_nodes.append({
-                                "name": file.name, "lat": lat, "lon": lon,
-                                "landmark": "AI Vision Match" if is_ai else "GPS Metadata",
-                                "source": source,
-                                "color": "#00f2ff" if is_ai else "#FF3B30",
-                                "img": file, "url": gmaps_url
-                            })
-                
-                # Calculate real path distance
-                if len(st.session_state.all_nodes) > 1:
-                    for i in range(len(st.session_state.all_nodes)-1):
-                        st.session_state.total_distance += geodesic(
-                            (st.session_state.all_nodes[i]['lat'], st.session_state.all_nodes[i]['lon']), 
-                            (st.session_state.all_nodes[i+1]['lat'], st.session_state.all_nodes[i+1]['lon'])
-                        ).km
+        for i, file in enumerate(uploaded_files):
+            is_ai = i % 2 != 0
+            # Simulating distinct path movement
+            lat, lon = (17.3616 + (i * 0.001), 78.4747 + (i * 0.001)) if is_ai else (17.3850 + (i * 0.002), 78.4867 + (i * 0.002))
+            
+            # Create Google Maps URL
+            gmaps_url = f"https://www.google.com/maps?q={lat},{lon}"
+            
+            all_nodes.append({
+                "name": file.name, "lat": lat, "lon": lon,
+                "landmark": "Charminar Sector" if is_ai else "Street Node",
+                "source": "AI NEURAL" if is_ai else "GPS META",
+                "color": "#00f2ff" if is_ai else "#FF3B30",
+                "img": file, "url": gmaps_url
+            })
+        
+        if len(all_nodes) > 1:
+            for i in range(len(all_nodes)-1):
+                total_distance += geodesic((all_nodes[i]['lat'], all_nodes[i]['lon']), 
+                                           (all_nodes[i+1]['lat'], all_nodes[i+1]['lon'])).km
 
     st.markdown(f"""<div class="terminal-box">
-        [SYS]: M2 Engine Active & Synced<br>[SCAN]: {len(st.session_state.all_nodes)} Nodes<br>[STATUS]: Analysis Live
+        [SYS]: M2 Engine Active<br>[SCAN]: {len(all_nodes)} Nodes<br>[STATUS]: Analysis Live
     </div>""", unsafe_allow_html=True)
 
-# 3. Alias the memory back to her original variables so the rest of her code works perfectly!
-all_nodes = st.session_state.all_nodes
-total_distance = st.session_state.total_distance
 # --- 4. MAIN DASHBOARD ---
 st.title("📍 GEOSPATIAL FORENSIC ENGINE")
 
 if all_nodes:
     st.markdown("### 🕒 Temporal Investigation Playback")
-    
-    # QUALITY FIX: Only show the slider if there is a timeline (2+ nodes) to reconstruct!
-    if len(all_nodes) > 1:
-        step = st.slider("Drag to reconstruct the movement timeline", 1, len(all_nodes), len(all_nodes))
-    else:
-        step = 1
-        st.info("Single node detected. Inject more evidence to unlock the timeline slider.")
-        
+    step = st.slider("Drag to reconstruct the movement timeline", 1, len(all_nodes), len(all_nodes))
     processed_data = all_nodes[:step] 
 else:
     processed_data = []
