@@ -8,14 +8,6 @@ from fpdf import FPDF
 import random
 import io
 
-
-import os
-# This ensures the folder exists the second the app boots up on the cloud
-if not os.path.exists("evidence_images"):
-    os.makedirs("evidence_images")
-
-
-
 # --- 1. PAGE SETUP & CYBER-THEME ---
 st.set_page_config(page_title="M2 Geo-Forensics Engine", layout="wide")
 
@@ -85,12 +77,37 @@ with st.sidebar:
     
     # 2. QUALITY FIX: Put the button back so we don't spam the API!
     if uploaded_files:
-        import time # 🕒 Needed for the rate-limit breather
-
-
+        if st.button("🚀 INITIATE AI RECONNAISSANCE", use_container_width=True):
+            with st.spinner("Executing Neural Extraction Pipeline..."):
+                
+                # Clear old memory for a fresh run
+                st.session_state.all_nodes = [] 
+                st.session_state.total_distance = 0.0
+                
+                _, extracted_df = pipeline.process_uploaded_files(uploaded_files)
+                
+                if not extracted_df.empty:
+                    for i, file in enumerate(uploaded_files):
+                        match = extracted_df[extracted_df['File'] == file.name]
+                        if not match.empty:
+                            lat = match.iloc[0]['Lat']
+                            lon = match.iloc[0]['Lon']
+                            source = match.iloc[0]['Source']
+                            
+                            is_ai = "AI" in source.upper() 
+                            gmaps_url = f"https://www.google.com/maps?q={lat},{lon}"
+                            
+                            # Save to Streamlit Memory
+                            st.session_state.all_nodes.append({
+                                "name": file.name, "lat": lat, "lon": lon,
+                                "landmark": "AI Vision Match" if is_ai else "GPS Metadata",
+                                "source": source,
+                                "color": "#00f2ff" if is_ai else "#FF3B30",
+                                "img": file, "url": gmaps_url
+                            })
                 
                 # Calculate real path distance
-    if len(st.session_state.all_nodes) > 1:
+                if len(st.session_state.all_nodes) > 1:
                     for i in range(len(st.session_state.all_nodes)-1):
                         st.session_state.total_distance += geodesic(
                             (st.session_state.all_nodes[i]['lat'], st.session_state.all_nodes[i]['lon']), 
