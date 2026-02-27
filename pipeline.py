@@ -34,30 +34,7 @@ def convert_to_degrees(value):
 # --- 3. CORE LOGIC: IMAGE PROCESSING ---
 def process_images(folder):
    
-    import time
-
-def process_uploaded_files(uploaded_files):
-    all_extracted_data = []
-
-    for file in uploaded_files:
-        # 1. THE BREATHER: Avoid the 429 "Rate Limit" error from Gemini
-        # We wait 1.2 seconds between each image to stay in the free tier
-        if len(all_extracted_data) > 0:
-            time.sleep(1.2)
-            
-        # 2. Extract Data (Your existing logic)
-        result = process_single_image(file) 
-        
-        if result:
-            all_extracted_data.append(result)
-
-    # 3. THE FINAL MAP: Build the map ONLY after all images are processed
-    if all_extracted_data:
-        # Pass the FULL list of points to your map builder
-        final_map = build_map_from_list(all_extracted_data)
-        return final_map, pd.DataFrame(all_extracted_data)
-    
-    return None, pd.DataFrame()
+   
     
     """
     Scans a folder, extracts GPS (EXIF) or asks AI (Gemini), 
