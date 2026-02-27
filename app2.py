@@ -90,7 +90,7 @@ with st.sidebar:
 
                 
                 # Calculate real path distance
-                if len(st.session_state.all_nodes) > 1:
+    if len(st.session_state.all_nodes) > 1:
                     for i in range(len(st.session_state.all_nodes)-1):
                         st.session_state.total_distance += geodesic(
                             (st.session_state.all_nodes[i]['lat'], st.session_state.all_nodes[i]['lon']), 
