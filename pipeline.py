@@ -33,6 +33,9 @@ def convert_to_degrees(value):
 
 # --- 3. CORE LOGIC: IMAGE PROCESSING ---
 def process_images(folder):
+   
+   
+    
     """
     Scans a folder, extracts GPS (EXIF) or asks AI (Gemini), 
     and returns a Map object and a list of data points.
