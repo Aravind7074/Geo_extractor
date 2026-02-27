@@ -1,0 +1,10 @@
+streamlit
+pandas
+folium
+streamlit-folium
+geopy
+fpdf2
+exifread
+google-genai
+Pillow
+python-dotenv
