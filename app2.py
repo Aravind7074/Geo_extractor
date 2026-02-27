@@ -87,42 +87,7 @@ with st.sidebar:
     if uploaded_files:
         import time # 🕒 Needed for the rate-limit breather
 
-# ... inside the if uploaded_files block ...
-if st.button("🚀 INITIATE AI RECONNAISSANCE", use_container_width=True):
-    with st.spinner("Executing Neural Extraction Pipeline..."):
-        
-        # Clear old memory
-        st.session_state.all_nodes = [] 
-        st.session_state.total_distance = 0.0
-        
-        # 1. PROCESS ALL FILES
-        # We process them one by one here to ensure the AI doesn't skip any!
-        for i, file in enumerate(uploaded_files):
-            # Pass a SINGLE file to the backend instead of the whole list
-            _, extracted_df = pipeline.process_uploaded_files([file]) 
-            
-            if not extracted_df.empty:
-                row = extracted_df.iloc[0]
-                lat, lon = row['Lat'], row['Lon']
-                source = row['Source']
-                
-                is_ai = "AI" in source.upper() 
-                gmaps_url = f"https://www.google.com/maps?q={lat},{lon}"
-                
-                st.session_state.all_nodes.append({
-                    "name": file.name, "lat": lat, "lon": lon,
-                    "landmark": "AI Vision Match" if is_ai else "GPS Metadata",
-                    "source": source,
-                    "color": "#00f2ff" if is_ai else "#FF3B30",
-                    "img": file, "url": gmaps_url
-                })
-                
-                # 2. THE QUALITY BREATHER
-                # Wait 1.5 seconds between images to stay under the Gemini Free Tier limit
-                if i < len(uploaded_files) - 1:
-                    time.sleep(1.5)
-            else:
-                st.warning(f"⚠️ Could not extract data from: {file.name}")
+
                 
                 # Calculate real path distance
                 if len(st.session_state.all_nodes) > 1:
