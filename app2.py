@@ -9,14 +9,10 @@ import random
 import io
 
 
-# --- TEMPORARY QA DEBUGGER ---
 import os
-test_key = os.getenv("GEMINI_API_KEY")
-if test_key:
-    st.success(f"✅ Cloud Server sees the API Key! (Starts with: {test_key[:5]}...)")
-else:
-    st.error("🚨 CRITICAL: The Cloud Server CANNOT see the API Key! It is running blind.")
-# ----------------------------- tempend
+# This ensures the folder exists the second the app boots up on the cloud
+if not os.path.exists("evidence_images"):
+    os.makedirs("evidence_images")
 
 
 
