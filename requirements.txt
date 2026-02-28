@@ -3,8 +3,5 @@ pandas
 folium
 streamlit-folium
 geopy
-fpdf2
-exifread
-google-genai
+google-generativeai
 Pillow
-python-dotenv
