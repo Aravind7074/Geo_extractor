@@ -62,7 +62,7 @@ def process_uploaded_files(files):
             else:
                 return f"🚨 Format Error! The AI replied with: {raw_text}", pd.DataFrame()
                 
-            time.sleep(4.0) 
+            time.sleep(2.0) 
             
         except Exception as e:
             return f"🚨 System Crash on {file.name}: {str(e)}", pd.DataFrame()
@@ -136,6 +136,9 @@ with st.sidebar:
                         # Link back to the original file for the Gallery view
                         orig_file = next(f for f in uploaded_files if f.name == row['File'])
                         
+                        # ✅ FIXED: CORRECT GOOGLE MAPS URL FORMAT
+                        clean_url = f"https://www.google.com/maps?q={row['Lat']},{row['Lon']}"
+                        
                         st.session_state.all_nodes.append({
                             "name": row['File'], 
                             "lat": row['Lat'], 
@@ -144,7 +147,7 @@ with st.sidebar:
                             "source": row['Source'],
                             "color": "#00f2ff" if "AI" in row['Source'] else "#FF3B30",
                             "img": orig_file, 
-                            "url": f"http://googleusercontent.com/maps.google.com/maps?q={row['Lat']},{row['Lon']}"
+                            "url": clean_url
                         })
                     
                     # Calculate total trajectory distance
