@@ -10,7 +10,6 @@ import time
 import json
 import google.generativeai as genai
 from PIL import Image
-
 import re
 
 # ==========================================
@@ -61,13 +60,11 @@ def process_uploaded_files(files):
                     "landmark": data.get('name', 'Unknown Node')
                 })
             else:
-                # If it fails, print EXACTLY what the AI said to the screen
                 return f"🚨 Format Error! The AI replied with: {raw_text}", pd.DataFrame()
                 
             time.sleep(4.0) 
             
         except Exception as e:
-            # If Python crashes, print the EXACT code error to the screen
             return f"🚨 System Crash on {file.name}: {str(e)}", pd.DataFrame()
             
     if not results:
@@ -147,7 +144,7 @@ with st.sidebar:
                             "source": row['Source'],
                             "color": "#00f2ff" if "AI" in row['Source'] else "#FF3B30",
                             "img": orig_file, 
-                            "url": f"http://www.google.com/maps/place/{row['Lat']},{row['Lon']}"
+                            "url": f"http://googleusercontent.com/maps.google.com/maps?q={row['Lat']},{row['Lon']}"
                         })
                     
                     # Calculate total trajectory distance
@@ -199,36 +196,52 @@ if all_nodes:
     
     with col_left:
         st.subheader("Satellite Recon Map")
-        # Start map at latest node
-        m = folium.Map(location=[processed_data[-1]['lat'], processed_data[-1]['lon']], zoom_start=16)
-        
-        # Satellite Base Layer
-        folium.TileLayer(
-            tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            attr='Esri', name='Satellite Recon', overlay=False
-        ).add_to(m)
-
-        if show_heatmap:
-            HeatMap([[d['lat'], d['lon']] for d in processed_data]).add_to(m)
-
-        if len(processed_data) > 1:
-            folium.PolyLine([[d['lat'], d['lon']] for d in processed_data], color="#00f2ff", weight=4).add_to(m)
-
-        for d in processed_data:
-            # High-tech pulsing marker
-            icon_html = f"""<div style="width:12px; height:12px; background:{d['color']}; border-radius:50%; box-shadow:0 0 10px {d['color']};"></div>"""
+        if processed_data:
+            # Start map at latest node
+            m = folium.Map(location=[processed_data[-1]['lat'], processed_data[-1]['lon']], zoom_start=16)
             
-            folium.Marker(
-                [d['lat'], d['lon']],
-                popup=f"{d['landmark']} ({d['source']})",
-                icon=folium.DivIcon(html=icon_html)
+            # Satellite Base Layer
+            folium.TileLayer(
+                tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attr='Esri', name='Satellite Recon', overlay=False
             ).add_to(m)
-            
-            if show_cctv:
-                folium.Circle([d['lat'], d['lon']], radius=100, color='#FFD700', fill=True, fill_opacity=0.05).add_to(m)
 
-        # THE ANTI-FLICKER FIX
-        st_folium(m, use_container_width=True, height=550, returned_objects=[])
+            if show_heatmap:
+                HeatMap([[d['lat'], d['lon']] for d in processed_data]).add_to(m)
+
+            if len(processed_data) > 1:
+                folium.PolyLine([[d['lat'], d['lon']] for d in processed_data], color="#00f2ff", weight=4).add_to(m)
+
+            for d in processed_data:
+                # ----------------------------------------------------
+                # ✅ FIX: HTML POPUP WITH NAVIGATION LINK
+                # ----------------------------------------------------
+                popup_html = f"""
+                <div style="font-family: monospace; width: 180px;">
+                    <b>NODE:</b> {d['landmark']}<br>
+                    <b>SRC:</b> {d['source']}<br>
+                    <hr style="margin:5px 0;">
+                    <a href="{d['url']}" target="_blank" 
+                       style="background-color: {d['color']}; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; display: block; text-align: center; font-weight: bold;">
+                       🚀 OPEN MAPS
+                    </a>
+                </div>
+                """
+                
+                # High-tech pulsing marker
+                icon_html = f"""<div style="width:14px; height:14px; background:{d['color']}; border-radius:50%; box-shadow:0 0 10px {d['color']}; border: 2px solid white;"></div>"""
+                
+                folium.Marker(
+                    [d['lat'], d['lon']],
+                    popup=folium.Popup(popup_html, max_width=250),
+                    icon=folium.DivIcon(html=icon_html)
+                ).add_to(m)
+                
+                if show_cctv:
+                    folium.Circle([d['lat'], d['lon']], radius=100, color='#FFD700', fill=True, fill_opacity=0.05).add_to(m)
+
+            # THE ANTI-FLICKER FIX
+            st_folium(m, use_container_width=True, height=550, returned_objects=[])
 
     with col_right:
         st.subheader("Intelligence Stream")
@@ -237,12 +250,15 @@ if all_nodes:
     # RECON GALLERY
     st.markdown("---")
     st.subheader("🖼️ RECONNAISSANCE GALLERY")
-    g_cols = st.columns(4)
-    for i, d in enumerate(processed_data):
-        with g_cols[i % 4]:
-            with st.container(border=True):
-                st.image(d['img'], use_container_width=True)
-                st.markdown(f"<p style='color:{d['color']}; font-weight:bold;'>NODE {i+1}: {d['landmark']}</p>", unsafe_allow_html=True)
-                st.link_button("MAPS LINK", d['url'], use_container_width=True)
+    
+    # We use a loop for rows of 4
+    if processed_data:
+        cols = st.columns(4)
+        for i, d in enumerate(processed_data):
+            with cols[i % 4]:
+                with st.container(border=True):
+                    st.image(d['img'], use_container_width=True)
+                    st.markdown(f"<p style='color:{d['color']}; font-weight:bold; font-size: 0.8rem;'>NODE {i+1}: {d['landmark']}</p>", unsafe_allow_html=True)
+                    st.link_button("🚀 NAVIGATE", d['url'], use_container_width=True)
 else:
     st.info("🛰️ **System Standby.** Inject forensic images via the sidebar to initialize tracking.")
