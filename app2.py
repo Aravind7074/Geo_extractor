@@ -52,10 +52,16 @@ def process_uploaded_files(files):
             match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
                 data = json.loads(match.group(0))
+                
+                # ✅ FIX 1: SAFETY CHECK FOR NULL COORDINATES
+                # If 'lat' is None (null), fallback to 0.0 immediately
+                lat = float(data.get('lat') or 0.0)
+                lng = float(data.get('lng') or 0.0)
+                
                 results.append({
                     "File": file.name,
-                    "Lat": float(data.get('lat', 0.0)),
-                    "Lon": float(data.get('lng', 0.0)),
+                    "Lat": lat,
+                    "Lon": lng,
                     "Source": "AI Neural Vision",
                     "landmark": data.get('name', 'Unknown Node')
                 })
@@ -136,7 +142,7 @@ with st.sidebar:
                         # Link back to the original file for the Gallery view
                         orig_file = next(f for f in uploaded_files if f.name == row['File'])
                         
-                        # ✅ FIXED: CORRECT GOOGLE MAPS URL FORMAT
+                        # ✅ FIX 2: STANDARD GOOGLE MAPS URL
                         clean_url = f"https://www.google.com/maps?q={row['Lat']},{row['Lon']}"
                         
                         st.session_state.all_nodes.append({
@@ -217,7 +223,7 @@ if all_nodes:
 
             for d in processed_data:
                 # ----------------------------------------------------
-                # ✅ FIX: HTML POPUP WITH NAVIGATION LINK
+                # POPUP WITH WORKING NAVIGATION LINK
                 # ----------------------------------------------------
                 popup_html = f"""
                 <div style="font-family: monospace; width: 180px;">
