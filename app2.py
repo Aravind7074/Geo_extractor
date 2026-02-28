@@ -18,8 +18,7 @@ import re
 
 def get_ai_response(image_input):
     """
-    Tries multiple AI models automatically. 
-    If 'gemini-1.5-flash' fails (404), it switches to 'gemini-pro'.
+    Auto-detects the correct model for your API Key.
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -27,36 +26,47 @@ def get_ai_response(image_input):
 
     genai.configure(api_key=api_key)
 
-    # 🛡️ FAIL-SAFE MODEL LIST: Tries these in order until one works
-    models_to_try = [
-        'gemini-1.5-flash',       # Newest & Fastest
-        'gemini-1.5-flash-latest',
-        'gemini-1.5-pro',         # Smarter but slower
-        'gemini-pro',             # Old Reliable (Most compatible)
-        'gemini-1.0-pro'          # Legacy
-    ]
+    # ---------------------------------------------------------
+    # 🛡️ AUTO-DISCOVERY: Find a model that works for this Key
+    # ---------------------------------------------------------
+    chosen_model = None
+    try:
+        # Ask Google: "What models do I have?"
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                if 'flash' in m.name or 'pro' in m.name:
+                    chosen_model = m.name
+                    break # Found a good one!
+    except Exception as e:
+        return None, f"❌ API Connection Error: {e}"
 
-    prompt = """
-    Analyze this image for location clues (architecture, signs, vegetation, weather).
-    
-    TASK:
-    1. Identify the specific landmark if possible.
-    2. If unknown, ESTIMATE the location (City/Region) based on visual evidence.
-    3. You MUST return a JSON object with coordinates.
-    
-    Format exactly like this (Raw JSON only): 
-    {"lat": 48.8584, "lng": 2.2945, "name": "Eiffel Tower (Estimated)"}
-    """
+    # Fallback if auto-discovery fails
+    if not chosen_model:
+        chosen_model = 'gemini-pro'
 
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content([prompt, image_input])
-            return response.text, None  # Success! Return text and no error
-        except Exception:
-            continue  # If 404 or error, try the next model in the list
+    # ---------------------------------------------------------
+    # 🧠 EXECUTE ANALYSIS
+    # ---------------------------------------------------------
+    try:
+        model = genai.GenerativeModel(chosen_model)
+        
+        prompt = """
+        Analyze this image for location clues (architecture, signs, vegetation, weather).
+        
+        TASK:
+        1. Identify the specific landmark if possible.
+        2. If unknown, ESTIMATE the location (City/Region) based on visual evidence.
+        3. You MUST return a JSON object with coordinates.
+        
+        Format exactly like this (Raw JSON only): 
+        {"lat": 48.8584, "lng": 2.2945, "name": "Eiffel Tower (Estimated)"}
+        """
+        
+        response = model.generate_content([prompt, image_input])
+        return response.text, None
 
-    return None, "🚨 All AI models failed. Please check your API Key permissions."
+    except Exception as e:
+        return None, f"🚨 Model '{chosen_model}' failed: {str(e)}"
 
 def process_uploaded_files(files):
     """Processes images with active UI Telemetry."""
@@ -66,7 +76,7 @@ def process_uploaded_files(files):
         try:
             img = Image.open(file)
             
-            # Call the Fail-Safe AI function
+            # Call the Auto-Detect AI function
             raw_text, error_msg = get_ai_response(img)
             
             if error_msg:
