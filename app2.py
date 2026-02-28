@@ -11,6 +11,8 @@ import json
 import google.generativeai as genai
 from PIL import Image
 
+import re
+
 # ==========================================
 # --- 0. AI NEURAL ENGINE (BACKEND CORE) ---
 # ==========================================
@@ -24,7 +26,7 @@ def get_ai_model():
     return genai.GenerativeModel('gemini-2.5-flash')
 
 def process_uploaded_files(files):
-    """Processes images directly from memory to prevent Cloud folder crashes."""
+    """Processes images directly from memory with Bulletproof JSON parsing."""
     model = get_ai_model()
     if not model:
         return "❌ Cloud Security Error: API Key Missing in Streamlit Secrets.", pd.DataFrame()
@@ -33,26 +35,31 @@ def process_uploaded_files(files):
     
     for file in files:
         try:
-            # Open image in Neural Memory (no hard drive saving required)
             img = Image.open(file)
             
-            # Instruct Gemini to return clean JSON
-            prompt = "Identify the specific landmark or location in this image. Return ONLY a valid JSON object with the exact keys: {'lat': float, 'lng': float, 'name': 'string'}."
+            # 1. THE RUTHLESS PROMPT: Forcing the AI to act like an API
+            prompt = """You are a geospatial extraction API. Identify the landmark in this image. 
+            You must reply ONLY with a raw JSON object. Do not use markdown. Do not say 'Sure'. 
+            Format exactly like this: {"lat": 35.6586, "lng": 139.7454, "name": "Tokyo Tower"}"""
+            
             response = model.generate_content([prompt, img])
             
-            # Clean and parse the AI's response
-            clean_json = response.text.replace('```json', '').replace('```', '').strip()
-            data = json.loads(clean_json)
+            # 2. THE BULLETPROOF EXTRACTOR: Hunts for the { brackets }
+            match = re.search(r'\{.*\}', response.text, re.DOTALL)
             
-            results.append({
-                "File": file.name,
-                "Lat": data.get('lat', 0.0),
-                "Lon": data.get('lng', 0.0),
-                "Source": "AI Neural Vision",
-                "landmark": data.get('name', 'Unknown Forensic Node')
-            })
+            if match:
+                data = json.loads(match.group(0))
+                
+                results.append({
+                    "File": file.name,
+                    "Lat": float(data.get('lat', 0.0)),
+                    "Lon": float(data.get('lng', 0.0)),
+                    "Source": "AI Neural Vision",
+                    "landmark": data.get('name', 'Unknown Forensic Node')
+                })
+            else:
+                print(f"⚠️ AI returned invalid format: {response.text}")
             
-            # QUALITY BREATHER: Wait 1.2s to prevent 429 Rate Limit crashes
             time.sleep(1.2) 
             
         except Exception as e:
