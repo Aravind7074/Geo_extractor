@@ -64,7 +64,7 @@ def process_uploaded_files(files):
                 # If it fails, print EXACTLY what the AI said to the screen
                 return f"🚨 Format Error! The AI replied with: {raw_text}", pd.DataFrame()
                 
-            time.sleep(1.2) 
+            time.sleep(4.0) 
             
         except Exception as e:
             # If Python crashes, print the EXACT code error to the screen
