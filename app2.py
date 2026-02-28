@@ -172,8 +172,8 @@ with st.sidebar:
                     for _, row in df.iterrows():
                         orig_file = next(f for f in uploaded_files if f.name == row['File'])
                         
-                        # ✅ FIXED: Correct Google Maps URL
-                        clean_url = f"http://googleusercontent.com/maps.google.com/?q={row['Lat']},{row['Lon']}"
+                        # ✅ FIXED: Use the official Google Maps Domain
+                        clean_url = f"https://www.google.com/maps?q={row['Lat']},{row['Lon']}"
                         
                         st.session_state.all_nodes.append({
                             "name": row['File'], 
