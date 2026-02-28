@@ -26,10 +26,10 @@ def get_ai_model():
     return genai.GenerativeModel('gemini-2.5-flash')
 
 def process_uploaded_files(files):
-    """Processes images directly from memory with Bulletproof JSON parsing."""
+    """Processes images with active UI Telemetry to catch silent cloud errors."""
     model = get_ai_model()
     if not model:
-        return "❌ Cloud Security Error: API Key Missing in Streamlit Secrets.", pd.DataFrame()
+        return "❌ Cloud Security Error: API Key Missing.", pd.DataFrame()
 
     results = []
     
@@ -37,36 +37,41 @@ def process_uploaded_files(files):
         try:
             img = Image.open(file)
             
-            # 1. THE RUTHLESS PROMPT: Forcing the AI to act like an API
-            prompt = """You are a geospatial extraction API. Identify the landmark in this image. 
-            You must reply ONLY with a raw JSON object. Do not use markdown. Do not say 'Sure'. 
-            Format exactly like this: {"lat": 35.6586, "lng": 139.7454, "name": "Tokyo Tower"}"""
+            prompt = """Identify the landmark in this image. 
+            You must reply ONLY with a raw JSON object. Format exactly like this: 
+            {"lat": 35.6586, "lng": 139.7454, "name": "Tokyo Tower"}"""
             
             response = model.generate_content([prompt, img])
             
-            # 2. THE BULLETPROOF EXTRACTOR: Hunts for the { brackets }
-            match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            # --- X-RAY CHECK 1: Did Google's safety filter block the response? ---
+            try:
+                raw_text = response.text
+            except ValueError:
+                return f"🚨 AI Safety Block: Google Gemini refused to analyze {file.name} due to safety filters.", pd.DataFrame()
             
+            # --- X-RAY CHECK 2: Can we read the JSON? ---
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
                 data = json.loads(match.group(0))
-                
                 results.append({
                     "File": file.name,
                     "Lat": float(data.get('lat', 0.0)),
                     "Lon": float(data.get('lng', 0.0)),
                     "Source": "AI Neural Vision",
-                    "landmark": data.get('name', 'Unknown Forensic Node')
+                    "landmark": data.get('name', 'Unknown Node')
                 })
             else:
-                print(f"⚠️ AI returned invalid format: {response.text}")
-            
+                # If it fails, print EXACTLY what the AI said to the screen
+                return f"🚨 Format Error! The AI replied with: {raw_text}", pd.DataFrame()
+                
             time.sleep(1.2) 
             
         except Exception as e:
-            print(f"⚠️ Extraction Error on {file.name}: {e}")
+            # If Python crashes, print the EXACT code error to the screen
+            return f"🚨 System Crash on {file.name}: {str(e)}", pd.DataFrame()
             
     if not results:
-        return "⚠️ AI Neural Vision could not extract recognizable landmarks from the provided evidence.", pd.DataFrame()
+        return "⚠️ AI Neural Vision could not extract recognizable landmarks.", pd.DataFrame()
         
     return "✅ Neural Intelligence Extraction Successful.", pd.DataFrame(results)
 
