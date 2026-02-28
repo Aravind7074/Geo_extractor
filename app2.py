@@ -16,48 +16,63 @@ import re
 # --- 0. AI NEURAL ENGINE (BACKEND CORE) ---
 # ==========================================
 
-def get_ai_model():
-    """Securely fetches the API key from Cloud Secrets and boots Gemini."""
+def get_ai_response(image_input):
+    """
+    Tries multiple AI models automatically. 
+    If 'gemini-1.5-flash' fails (404), it switches to 'gemini-pro'.
+    """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return None
+        return None, "❌ Cloud Security Error: API Key Missing."
+
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+
+    # 🛡️ FAIL-SAFE MODEL LIST: Tries these in order until one works
+    models_to_try = [
+        'gemini-1.5-flash',       # Newest & Fastest
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-pro',         # Smarter but slower
+        'gemini-pro',             # Old Reliable (Most compatible)
+        'gemini-1.0-pro'          # Legacy
+    ]
+
+    prompt = """
+    Analyze this image for location clues (architecture, signs, vegetation, weather).
+    
+    TASK:
+    1. Identify the specific landmark if possible.
+    2. If unknown, ESTIMATE the location (City/Region) based on visual evidence.
+    3. You MUST return a JSON object with coordinates.
+    
+    Format exactly like this (Raw JSON only): 
+    {"lat": 48.8584, "lng": 2.2945, "name": "Eiffel Tower (Estimated)"}
+    """
+
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, image_input])
+            return response.text, None  # Success! Return text and no error
+        except Exception:
+            continue  # If 404 or error, try the next model in the list
+
+    return None, "🚨 All AI models failed. Please check your API Key permissions."
 
 def process_uploaded_files(files):
-    """Processes images with active UI Telemetry to catch silent cloud errors."""
-    model = get_ai_model()
-    if not model:
-        return "❌ Cloud Security Error: API Key Missing.", pd.DataFrame()
-
+    """Processes images with active UI Telemetry."""
     results = []
     
     for file in files:
         try:
             img = Image.open(file)
             
-            # ✅ UPDATED PROMPT: Forces the AI to guess instead of giving up
-            prompt = """
-            Analyze this image for location clues (architecture, signs, vegetation, weather).
+            # Call the Fail-Safe AI function
+            raw_text, error_msg = get_ai_response(img)
             
-            TASK:
-            1. Identify the specific landmark if possible.
-            2. If unknown, ESTIMATE the location (City/Region) based on visual evidence.
-            3. You MUST return a JSON object with coordinates.
-            
-            Format exactly like this (Raw JSON only): 
-            {"lat": 48.8584, "lng": 2.2945, "name": "Eiffel Tower (Estimated)"}
-            """
-            
-            response = model.generate_content([prompt, img])
-            
-            # --- X-RAY CHECK 1: Did Google's safety filter block the response? ---
-            try:
-                raw_text = response.text
-            except ValueError:
-                return f"🚨 AI Safety Block: Google Gemini refused to analyze {file.name} due to safety filters.", pd.DataFrame()
-            
-            # --- X-RAY CHECK 2: Can we read the JSON? ---
+            if error_msg:
+                return error_msg, pd.DataFrame()
+
+            # --- X-RAY CHECK: Can we read the JSON? ---
             match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
                 data = json.loads(match.group(0))
@@ -76,7 +91,7 @@ def process_uploaded_files(files):
             else:
                 return f"🚨 Format Error! The AI replied with: {raw_text}", pd.DataFrame()
                 
-            time.sleep(2.0) 
+            time.sleep(1.0) # Short pause to be nice to the API
             
         except Exception as e:
             return f"🚨 System Crash on {file.name}: {str(e)}", pd.DataFrame()
@@ -138,19 +153,16 @@ with st.sidebar:
     if uploaded_files:
         if st.button("🚀 INITIATE AI RECONNAISSANCE", use_container_width=True):
             with st.spinner("Executing Neural Extraction Pipeline..."):
-                # Reset memory for fresh injection
                 st.session_state.all_nodes = []
                 st.session_state.total_distance = 0.0
                 
-                # CALL INTEGRATED BACKEND
                 msg, df = process_uploaded_files(uploaded_files)
                 
                 if not df.empty:
                     for _, row in df.iterrows():
-                        # Link back to the original file for the Gallery view
                         orig_file = next(f for f in uploaded_files if f.name == row['File'])
                         
-                        # ✅ FIXED: CORRECT GOOGLE MAPS URL FORMAT
+                        # ✅ FIXED: Correct Google Maps URL
                         clean_url = f"http://googleusercontent.com/maps.google.com/?q={row['Lat']},{row['Lon']}"
                         
                         st.session_state.all_nodes.append({
@@ -164,7 +176,6 @@ with st.sidebar:
                             "url": clean_url
                         })
                     
-                    # Calculate total trajectory distance
                     if len(st.session_state.all_nodes) > 1:
                         dist = 0.0
                         for i in range(len(st.session_state.all_nodes)-1):
@@ -214,10 +225,8 @@ if all_nodes:
     with col_left:
         st.subheader("Satellite Recon Map")
         if processed_data:
-            # Start map at latest node
             m = folium.Map(location=[processed_data[-1]['lat'], processed_data[-1]['lon']], zoom_start=16)
             
-            # Satellite Base Layer
             folium.TileLayer(
                 tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 attr='Esri', name='Satellite Recon', overlay=False
@@ -245,7 +254,6 @@ if all_nodes:
                 </div>
                 """
                 
-                # High-tech pulsing marker
                 icon_html = f"""<div style="width:14px; height:14px; background:{d['color']}; border-radius:50%; box-shadow:0 0 10px {d['color']}; border: 2px solid white;"></div>"""
                 
                 folium.Marker(
@@ -257,7 +265,6 @@ if all_nodes:
                 if show_cctv:
                     folium.Circle([d['lat'], d['lon']], radius=100, color='#FFD700', fill=True, fill_opacity=0.05).add_to(m)
 
-            # THE ANTI-FLICKER FIX
             st_folium(m, use_container_width=True, height=550, returned_objects=[])
 
     with col_right:
@@ -268,7 +275,6 @@ if all_nodes:
     st.markdown("---")
     st.subheader("🖼️ RECONNAISSANCE GALLERY")
     
-    # We use a loop for rows of 4
     if processed_data:
         cols = st.columns(4)
         for i, d in enumerate(processed_data):
