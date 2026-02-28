@@ -4,10 +4,68 @@ import folium
 from streamlit_folium import st_folium
 from folium.plugins import HeatMap
 from geopy.distance import geodesic
-import pipeline  # Your Backend Connection
 import io
+import os
+import time
+import json
+import google.generativeai as genai
+from PIL import Image
 
+# ==========================================
+# --- 0. AI NEURAL ENGINE (BACKEND CORE) ---
+# ==========================================
+
+def get_ai_model():
+    """Securely fetches the API key from Cloud Secrets and boots Gemini."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel('gemini-2.5-flash')
+
+def process_uploaded_files(files):
+    """Processes images directly from memory to prevent Cloud folder crashes."""
+    model = get_ai_model()
+    if not model:
+        return "❌ Cloud Security Error: API Key Missing in Streamlit Secrets.", pd.DataFrame()
+
+    results = []
+    
+    for file in files:
+        try:
+            # Open image in Neural Memory (no hard drive saving required)
+            img = Image.open(file)
+            
+            # Instruct Gemini to return clean JSON
+            prompt = "Identify the specific landmark or location in this image. Return ONLY a valid JSON object with the exact keys: {'lat': float, 'lng': float, 'name': 'string'}."
+            response = model.generate_content([prompt, img])
+            
+            # Clean and parse the AI's response
+            clean_json = response.text.replace('```json', '').replace('```', '').strip()
+            data = json.loads(clean_json)
+            
+            results.append({
+                "File": file.name,
+                "Lat": data.get('lat', 0.0),
+                "Lon": data.get('lng', 0.0),
+                "Source": "AI Neural Vision",
+                "landmark": data.get('name', 'Unknown Forensic Node')
+            })
+            
+            # QUALITY BREATHER: Wait 1.2s to prevent 429 Rate Limit crashes
+            time.sleep(1.2) 
+            
+        except Exception as e:
+            print(f"⚠️ Extraction Error on {file.name}: {e}")
+            
+    if not results:
+        return "⚠️ AI Neural Vision could not extract recognizable landmarks from the provided evidence.", pd.DataFrame()
+        
+    return "✅ Neural Intelligence Extraction Successful.", pd.DataFrame(results)
+
+# ==========================================
 # --- 1. PAGE SETUP & CYBER-THEME ---
+# ==========================================
 st.set_page_config(page_title="M2 Geo-Forensics Engine", layout="wide")
 
 st.markdown("""
@@ -35,13 +93,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# ==========================================
 # --- 2. SESSION INITIALIZATION ---
+# ==========================================
 if "all_nodes" not in st.session_state:
     st.session_state.all_nodes = []
 if "total_distance" not in st.session_state:
     st.session_state.total_distance = 0.0
 
+# ==========================================
 # --- 3. SIDEBAR RECON CORE ---
+# ==========================================
 with st.sidebar:
     st.markdown("<h2 style='color:#00f2ff;'>🛡️ RECON CORE</h2>", unsafe_allow_html=True)
     uploaded_files = st.file_uploader("Inject Forensic Media", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
@@ -57,8 +119,8 @@ with st.sidebar:
                 st.session_state.all_nodes = []
                 st.session_state.total_distance = 0.0
                 
-                # CALL BACKEND (Passing the batch of files)
-                msg, df = pipeline.process_uploaded_files(uploaded_files)
+                # CALL INTEGRATED BACKEND
+                msg, df = process_uploaded_files(uploaded_files)
                 
                 if not df.empty:
                     for _, row in df.iterrows():
@@ -93,7 +155,9 @@ with st.sidebar:
         [SYS]: M2 Engine Active<br>[SCAN]: {len(st.session_state.all_nodes)} Nodes<br>[STATUS]: Analysis Live
     </div>""", unsafe_allow_html=True)
 
+# ==========================================
 # --- 4. MAIN DASHBOARD ---
+# ==========================================
 st.title("📍 GEOSPATIAL FORENSIC ENGINE")
 
 all_nodes = st.session_state.all_nodes
